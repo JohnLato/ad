@@ -111,6 +111,10 @@ hessian' :: (Traversable f, Num a) => (forall s. f (Sparse s a) -> Sparse s a) -
 hessian' f as = d2' $ grads f as
 {-# INLINE hessian' #-}
 
+-- | hessianF
+--
+-- >>> hessianF (\[x,y] -> [x*y,x+y,exp x*cos y]) [1,2]
+-- [[[0.0,1.0],[1.0,0.0]],[[0.0,0.0],[0.0,0.0]],[[-1.1312043837568135,-2.4717266720048188],[-2.4717266720048188,1.1312043837568135]]]
 hessianF :: (Traversable f, Functor g, Num a) => (forall s. f (Sparse s a) -> g (Sparse s a)) -> f a -> g (f (f a))
 hessianF f as = d2 <$> jacobians f as
 {-# INLINE hessianF #-}

@@ -1,4 +1,7 @@
 {-# LANGUAGE FlexibleContexts, Rank2Types, TypeFamilies, PatternGuards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Numeric.AD
@@ -39,9 +42,9 @@
 -----------------------------------------------------------------------------
 
 module Numeric.AD
-    (
+    ( AD (..)
     -- * Gradients (Reverse Mode)
-      grad
+    , grad
     , grad'
     , gradWith
     , gradWith'
@@ -128,6 +131,7 @@ import Numeric.AD.Internal.Forward (Forward)
 import Numeric.AD.Internal.Identity
 import Numeric.AD.Internal.Reverse (Reverse, Tape)
 import Numeric.AD.Internal.Sparse (Sparse)
+import Numeric.AD.Internal.Types
 
 import Numeric.AD.Mode.Forward
     ( diff, diff', diffF, diffF'
@@ -153,7 +157,11 @@ import Numeric.AD.Newton
 -- | Calculate the Jacobian of a non-scalar-to-non-scalar function, automatically choosing between sparse and reverse mode AD based on the number of inputs and outputs.
 --
 -- If you know the relative number of inputs and outputs, consider 'Numeric.AD.Reverse.jacobian' or 'Nuneric.AD.Sparse.jacobian'.
-jacobian :: (Traversable f, Functor g, Num a) => (forall t. (Mode t, Scalar t ~ a) => f t -> g t) -> f a -> g (f a)
+--
+--
+-- >>> jacobian (\[x,y] -> [y,x,x+y,x*y,exp x * sin y]) [pi,1]
+-- [[0.0,1.0],[1.0,0.0],[1.0,1.0],[1.0,3.141592653589793],[19.472221418841606,12.502969588876512]]
+jacobian :: (Traversable f, Functor g, Num a) => (forall t. (Mode t, Lifted t, Scalar t ~ a) => f (AD t) -> g (AD t)) -> f a -> g (f a)
 jacobian f bs = snd <$> jacobian' f bs
 {-# INLINE jacobian #-}
 
@@ -169,10 +177,10 @@ big _ = False
 -- | Calculate both the answer and Jacobian of a non-scalar-to-non-scalar function, automatically choosing between sparse- and reverse- mode AD based on the relative, based on the number of inputs
 --
 -- If you know the relative number of inputs and outputs, consider 'Numeric.AD.Reverse.jacobian'' or 'Nuneric.AD.Sparse.jacobian''.
-jacobian' :: (Traversable f, Functor g, Num a) => (forall t. (Mode t, Scalar t ~ a) => f (t) -> g t) -> f a -> g (a, f a)
-jacobian' f bs | Z <- n = fmap (\x -> (unprobe x, bs)) (f (probed bs))
-               | big n  = Reverse.jacobian' f bs
-               | otherwise = Sparse.jacobian' f bs
+jacobian' :: (Traversable f, Functor g, Num a) => (forall t. (Mode t, Lifted t, Scalar t ~ a) => f (AD t) -> g (AD t)) -> f a -> g (a, f a)
+jacobian' f bs | Z <- n = fmap (\x -> (unprobe (runAD x), bs)) $ f (fmap AD $ probed bs)
+               | big n  = Reverse.jacobian' (fmap runAD . f . fmap AD) bs
+               | otherwise = Sparse.jacobian' (fmap runAD . f . fmap AD) bs
     where
         n = size bs
 {-# INLINE jacobian' #-}
@@ -182,7 +190,7 @@ jacobian' f bs | Z <- n = fmap (\x -> (unprobe x, bs)) (f (probed bs))
 -- The resulting Jacobian matrix is then recombined element-wise with the input using @g@.
 --
 -- If you know the relative number of inputs and outputs, consider 'Numeric.AD.Reverse.jacobianWith' or 'Nuneric.AD.Sparse.jacobianWith'.
-jacobianWith :: (Traversable f, Functor g, Num a) => (a -> a -> b) -> (forall t. Mode t => f t -> g t) -> f a -> g (f b)
+jacobianWith :: (Traversable f, Functor g, Num a) => (a -> a -> b) -> (forall t. (Lifted t, Mode t) => f (AD t) -> g (AD t)) -> f a -> g (f b)
 jacobianWith g f bs = snd <$> jacobianWith' g f bs
 {-# INLINE jacobianWith #-}
 
@@ -191,11 +199,11 @@ jacobianWith g f bs = snd <$> jacobianWith' g f bs
 -- The resulting Jacobian matrix is then recombined element-wise with the input using @g@.
 --
 -- If you know the relative number of inputs and outputs, consider 'Numeric.AD.Reverse.jacobianWith'' or 'Nuneric.AD.Sparse.jacobianWith''.
-jacobianWith' :: (Traversable f, Functor g, Num a) => (a -> a -> b) -> (forall t. Mode t => f t -> g t) -> f a -> g (a, f b)
+jacobianWith' :: (Traversable f, Functor g, Num a) => (a -> a -> b) -> (forall t. (Lifted t, Mode t, a ~ Scalar t) => f (AD t) -> g (AD t)) -> f a -> g (a, f b)
 jacobianWith' g f bs
-    | Z <- n = fmap (\x -> (unprobe x, undefined <$> bs)) (f (probed bs))
-    | big n  = Reverse.jacobianWith' g f bs
-    | otherwise = Sparse.jacobianWith' g f bs
+    | Z <- n = fmap (\x -> (unprobe (runAD x), undefined <$> bs)) $ f (fmap AD $ probed bs)
+    | big n  = Reverse.jacobianWith' g (fmap runAD . f . fmap AD) bs
+    | otherwise = Sparse.jacobianWith' g (fmap runAD . f . fmap AD) bs
     where
         n = size bs
 {-# INLINE jacobianWith' #-}
@@ -228,7 +236,9 @@ hessian f = Sparse.jacobian (grad (decomposeMode . f . fmap ComposeMode))
 --
 -- >>> hessianF (\[x,y] -> [x*y,x+y,exp x*cos y]) [1,2]
 -- [[[0.0,1.0],[1.0,0.0]],[[0.0,0.0],[0.0,0.0]],[[-1.1312043837568135,-2.4717266720048188],[-2.4717266720048188,1.1312043837568135]]]
-hessianF :: (Traversable f, Functor g, Num a) => (forall t. Mode t => f t -> g t) -> f a -> g (f (f a))
+hessianF :: forall a f g. (Traversable f, Functor g, Num a) => (forall t. (Mode t, Lifted t, Scalar t ~ a) => f (AD t) -> g (AD t)) -> f a -> g (f (f a))
 hessianF f as
-    | big (size as) = decomposeFunctor $ Sparse.jacobian (ComposeFunctor . Reverse.jacobian (fmap decomposeMode . f . fmap ComposeMode)) as
-    | otherwise = Sparse.hessianF f as
+    | big (size as) = decomposeFunctor $ Sparse.jacobian
+        (ComposeFunctor . Reverse.jacobian (fmap (decomposeMode . runAD) . f . fmap (AD . ComposeMode)))
+        as
+    | otherwise = Sparse.hessianF (fmap runAD . f . fmap AD) as

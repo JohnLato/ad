@@ -50,7 +50,7 @@ class Lifted g where
   liftInvErf     :: (a ~ Scalar g, InvErf a)          => p g -> (InvErf g     => r) -> r
   liftMode       :: (a ~ Scalar g, Mode a, Num a)     => p g -> (Mode g       => r) -> r
   liftPrimal     :: (a ~ Scalar g, Primal a, Num a)   => p g -> (Primal g     => r) -> r
-  liftJacobian   :: (a ~ Scalar g, Jacobian a, Num a) => p g -> (Jacobian g   => r) -> r
+  -- liftJacobian   :: (a ~ Scalar g, Jacobian a, Num a) => p g -> (Jacobian g   => r) -> r
   -- liftScalar     ::                 p (f a) -> (Scalar (f a) ~ a => r) -> r
 
   liftedBounded :: forall a. (a ~ Scalar g, Bounded a, Num a) => (Bounded g => g) -> g
@@ -230,7 +230,6 @@ deriveNumeric f tCon s' = map fudgeCxt <$> lifted
         liftInvErf     _ a = a
         liftMode       _ a = a
         liftPrimal     _ a = a
-        liftJacobian   _ a = a
        instance (Eq a, Num a) => Eq ($t a) where
         (==)          = discrete2 (==)
        instance (Ord a, Num a) => Ord ($t a) where

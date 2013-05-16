@@ -137,6 +137,7 @@ library
     Numeric.AD.Internal.Reverse
     Numeric.AD.Internal.Var
     Numeric.AD.Internal.Sparse
+    Numeric.AD.Internal.Types
     Numeric.AD.Internal.Dense
     Numeric.AD.Internal.Composition
 

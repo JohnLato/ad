@@ -151,6 +151,25 @@ instance (Lifted (f a), Lifted a, Mode a, Num a, Scalar (f a) ~ a, Num (Scalar a
   -- ComposeMode a ^/ b = ComposeMode $ liftedMode (a ^/ auto b)
   ComposeMode a <**> ComposeMode b = ComposeMode $ liftedMode $ liftedFloating' $ a <**> b
 
+danger :: p (ComposeMode f a) -> p a
+danger = undefined
+
+instance (Lifted (f a), Lifted a, a ~ Scalar (f a), Num (Scalar a), Num a) => Lifted (ComposeMode f a) where
+    liftBounded    p a = liftBounded (danger p) a
+    liftEnum       p a = liftEnum (danger p) a
+    liftEq         p a = liftEq (danger p) a
+    liftOrd        p a = liftOrd (danger p) a
+    liftNum        p a = liftNum (danger p) a
+    liftFractional p a = liftFractional (danger p) a
+    liftFloating   p a = liftFloating (danger p) a
+    liftRealFloat  p a = liftRealFloat (danger p) a
+    liftRealFrac   p a = liftRealFrac (danger p) a
+    liftReal       p a = liftReal (danger p) a
+    liftErf        p a = liftErf (danger p) a
+    liftInvErf     p a = liftInvErf (danger p) a
+    liftMode       p a = liftMode (danger p) a
+    liftPrimal     p a = liftPrimal (danger p) a
+
 {-
 instance (Primal (f a), Primal a, a ~ Scalar (f a)) => Primal (ComposeMode f a) where
   primal = primal . primal . decomposeMode

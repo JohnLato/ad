@@ -57,6 +57,22 @@ instance Num a => Mode (Id s a) where
 instance Num a => Primal (Id s a) where
     primal (Id a) = a
 
+instance Lifted (Id s a) where
+    liftBounded    _ a = a
+    liftEnum       _ a = a
+    liftEq         _ a = a
+    liftOrd        _ a = a
+    liftNum        _ a = a
+    liftFractional _ a = a
+    liftFloating   _ a = a
+    liftRealFloat  _ a = a
+    liftRealFrac   _ a = a
+    liftReal       _ a = a
+    liftErf        _ a = a
+    liftInvErf     _ a = a
+    liftMode       _ a = a
+    liftPrimal     _ a = a
+
 -- instance Erf a => Erf (Id a) where
 --   erf = Id . erf . runId
 --   erfc = Id . erfc . runId
